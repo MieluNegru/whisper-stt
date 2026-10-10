@@ -1,0 +1,40 @@
+# Whisper speech-to-text stack (CPU, medium model)
+#
+#  speaches        -> OpenAI-compatible REST API + streaming (port 8000)
+#                     used by: curl/scripts, desktop dictation, anything that speaks the OpenAI audio API
+#  faster-whisper  -> Wyoming protocol server (port 10300)
+#                     used by: Home Assistant (Settings > Devices & services > Add > Wyoming Protocol)
+#
+# Each service loads its own copy of the model (~1.5-2 GB RAM each for medium int8).
+
+services:
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    container_name: speaches
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf-hub-cache:/home/ubuntu/.cache/huggingface/hub
+    # Models load on first request and unload after a period of inactivity.
+    # Download the medium model once after starting:
+    #   curl -X POST http://localhost:8000/v1/models/Systran/faster-whisper-medium
+
+  faster-whisper:
+    image: lscr.io/linuxserver/faster-whisper:latest
+    container_name: faster-whisper
+    restart: unless-stopped
+    ports:
+      - "10300:10300"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Bucharest
+      - WHISPER_MODEL=medium-int8
+      - WHISPER_BEAM=1        # raise to 3-5 for accuracy at the cost of speed
+      - WHISPER_LANG=en       # HA voice works best with a fixed language; "auto" also works
+    volumes:
+      - ./faster-whisper:/config
+
+volumes:
+  hf-hub-cache:

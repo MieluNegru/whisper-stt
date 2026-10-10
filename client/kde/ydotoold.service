@@ -1,0 +1,14 @@
+# ~/.config/systemd/user/ydotoold.service
+# Runs the ydotool daemon as your user (needs /dev/uinput access, see 80-uinput.rules)
+
+[Unit]
+Description=ydotool daemon (virtual input for dictation)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-perm=0600
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Dictate (Romanian)
+Comment=Push-to-talk dictation via Whisper
+Exec=env WHISPER_URL=http://gb-server01:8000 @HOME@/.local/bin/dictate.sh ro
+Icon=audio-input-microphone
+NoDisplay=true
+X-KDE-GlobalAccel-CommandShortcut=true
