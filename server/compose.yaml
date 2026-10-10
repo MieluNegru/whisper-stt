@@ -1,11 +1,14 @@
-# Whisper speech-to-text stack (CPU, medium model)
+# Whisper speech-to-text stack (CPU)
 #
 #  speaches        -> OpenAI-compatible REST API + streaming (port 8000)
 #                     used by: curl/scripts, desktop dictation, anything that speaks the OpenAI audio API
 #  faster-whisper  -> Wyoming protocol server (port 10300)
 #                     used by: Home Assistant (Settings > Devices & services > Add > Wyoming Protocol)
 #
-# Each service loads its own copy of the model (~1.5-2 GB RAM each for medium int8).
+# The two services are separate processes, so each loads its OWN copy of its model into
+# its own memory -- a shared volume would dedupe them on disk but never in RAM. Hence the
+# asymmetry below: speaches runs medium (dictation wants the accuracy, and it unloads when
+# idle), while the Home Assistant path runs small-int8 (~0.5 GB resident, always loaded).
 
 services:
   speaches:
@@ -30,7 +33,10 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Bucharest
-      - WHISPER_MODEL=medium-int8
+      # small-int8 (~0.5 GB) rather than medium-int8 (~1-1.5 GB): this path is pinned to
+      # English by WHISPER_LANG below, where the accuracy gap is small. Romanian never
+      # reaches here -- dictation goes to speaches/medium instead.
+      - WHISPER_MODEL=small-int8
       - WHISPER_BEAM=1        # raise to 3-5 for accuracy at the cost of speed
       - WHISPER_LANG=en       # HA voice works best with a fixed language; "auto" also works
     volumes:

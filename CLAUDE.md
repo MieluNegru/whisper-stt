@@ -11,15 +11,24 @@ running them, not by running a test runner.
 
 ## Architecture
 
-Two independent containers, each loading its *own* copy of the Whisper model (~1.5–2 GB RAM each). They
-share nothing but the host:
+Two independent containers sharing nothing but the host. They are separate processes, so each loads its
+*own* copy of its model into its own memory — a shared volume can dedupe models on disk but never in RAM,
+which is why the two run *different* model sizes rather than one shared copy:
 
 - **speaches** (`:8000`) — OpenAI-compatible REST (`POST /v1/audio/transcriptions`). Consumed by
-  `client/dictate.sh`, curl, Open WebUI, n8n. Model chosen per request (`model=Systran/faster-whisper-medium`);
-  loaded lazily on first request and unloaded after idle, so the first call after a pause is slow.
-- **faster-whisper** (`:10300`) — Wyoming protocol, consumed only by Home Assistant. Model and language are
-  fixed at container level via `WHISPER_MODEL` / `WHISPER_LANG`; one language per server, so Romanian HA
-  voice means either flipping `WHISPER_LANG` or a second container on another port.
+  `client/dictate.sh`, curl, Open WebUI, n8n. Runs **medium** (~1.5–2 GB): model is chosen per request
+  (`model=Systran/faster-whisper-medium`), loaded lazily and unloaded after idle, so the first call after
+  a pause is slow. This is the path that serves Romanian.
+- **faster-whisper** (`:10300`) — Wyoming protocol, consumed only by Home Assistant. Runs **small-int8**
+  (~0.5 GB, always resident) because `WHISPER_LANG=en` pins it to English, where the accuracy gap to
+  medium is small. Model and language are fixed at container level via `WHISPER_MODEL` / `WHISPER_LANG`;
+  one language per server, so Romanian HA voice means flipping `WHISPER_LANG` (and raising the model back
+  to `medium-int8`) or adding a second container on another port.
+
+`WHISPER_MODEL` is passed verbatim to `wyoming_faster_whisper --model`, which accepts the `<size>-int8`
+shorthands (rewritten to `rhasspy/faster-whisper-<size>-int8`), any HF repo id, or an absolute local path.
+Models land in `server/faster-whisper/` as an HF-hub cache (`models--<org>--<repo>/snapshots/<rev>/`), and
+superseded repos are not pruned automatically.
 
 The host is referred to as `gb-server01` throughout. The client's server URL is overridable via `WHISPER_URL`
 (and model via `WHISPER_MODEL`), but that hostname is also **hardcoded in three other places** that must be

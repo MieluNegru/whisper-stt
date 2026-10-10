@@ -1,6 +1,6 @@
 # whisper-stt
 
-Self-hosted speech-to-text on CPU using Whisper **medium** (faster-whisper, int8), with:
+Self-hosted speech-to-text on CPU with faster-whisper (int8), with:
 
 - a **Home Assistant** voice backend (Wyoming protocol)
 - an **OpenAI-compatible REST API** for scripts and other services
@@ -9,10 +9,10 @@ Self-hosted speech-to-text on CPU using Whisper **medium** (faster-whisper, int8
 English and Romanian are both supported.
 
 ```
-┌──────────── gb-server01 (Docker) ─────────────┐
-│  speaches        :8000   OpenAI REST API      │◄── dictate.sh, curl, Open WebUI, n8n…
-│  faster-whisper  :10300  Wyoming protocol     │◄── Home Assistant
-└───────────────────────────────────────────────┘
+┌──────────────────── gb-server01 (Docker) ─────────────────────┐
+│  speaches        :8000   OpenAI REST API    medium  (en + ro) │◄── dictate.sh, curl, Open WebUI, n8n…
+│  faster-whisper  :10300  Wyoming protocol   small-int8  (en)  │◄── Home Assistant
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ## Repository layout
@@ -40,8 +40,11 @@ English and Romanian are both supported.
 ### Requirements
 
 - Docker with the Compose plugin (Podman with `podman compose` also works)
-- About 4 GB of free RAM. Each container loads its own copy of the medium model (about 1.5–2 GB each).
-- About 3 GB of disk for the models
+- About 2.5 GB of free RAM. The two services are separate processes, so each loads its own copy of
+  its model into its own memory: speaches runs **medium** (about 1.5–2 GB, and it unloads when idle),
+  the Wyoming server for Home Assistant runs **small-int8** (about 0.5 GB, always loaded). A shared
+  volume would dedupe the models on disk but never in RAM.
+- About 2 GB of disk for the models
 
 ### Start it
 
@@ -77,7 +80,7 @@ speaches loads a model on its first request and unloads it after a period of ina
 
 | Setting | Where | Notes |
 |---|---|---|
-| `WHISPER_MODEL` | faster-whisper env | `small-int8` is faster but less accurate, especially for Romanian |
+| `WHISPER_MODEL` | faster-whisper env | Default `small-int8`. `medium-int8` is more accurate but costs about 1 GB more RAM; worth it if you switch this server to Romanian |
 | `WHISPER_BEAM` | faster-whisper env | `1` is fastest; `3`–`5` is more accurate |
 | `WHISPER_LANG` | faster-whisper env | Language for Home Assistant: `en`, `ro`, or `auto` |
 | `model` request field | speaches | Any faster-whisper model ID, e.g. `Systran/faster-whisper-small` |
@@ -90,7 +93,7 @@ speaches loads a model on its first request and unloads it after a period of ina
 2. Set the host to `gb-server01` and the port to `10300`.
 3. Go to **Settings → Voice assistants**, open your assistant (or create one), and set **Speech-to-text** to `faster-whisper`.
 
-HA's Wyoming integration uses one language per server. To use Romanian voice commands in HA, either set `WHISPER_LANG=ro` or run a second `faster-whisper` container on another port with `WHISPER_LANG=ro`.
+HA's Wyoming integration uses one language per server. To use Romanian voice commands in HA, either set `WHISPER_LANG=ro` or run a second `faster-whisper` container on another port with `WHISPER_LANG=ro`. Raise that container to `WHISPER_MODEL=medium-int8` if you do: the default `small-int8` is noticeably weaker in Romanian, which is why this server defaults to English only.
 
 ---
 
