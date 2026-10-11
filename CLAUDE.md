@@ -30,7 +30,7 @@ shorthands (rewritten to `rhasspy/faster-whisper-<size>-int8`), any HF repo id, 
 Models land in `server/faster-whisper/` as an HF-hub cache (`models--<org>--<repo>/snapshots/<rev>/`), and
 superseded repos are not pruned automatically.
 
-The host is referred to as `gb-server01` throughout. The client's server URL is overridable via `WHISPER_URL`
+The host is referred to as `gb-server` throughout. The client's server URL is overridable via `WHISPER_URL`
 (and model via `WHISPER_MODEL`), but that hostname is also **hardcoded in three other places** that must be
 kept in sync when it changes: `client/hyprland/dictate.conf` (`env =` line) and both
 `client/kde/dictate-*.desktop` (`Exec=env WHISPER_URL=…`).
@@ -70,7 +70,7 @@ docker logs -f faster-whisper                      # model download progress
 
 # end-to-end check of the REST path
 pw-record --rate 16000 --channels 1 --format s16 test.wav & sleep 5; kill %1
-curl http://gb-server01:8000/v1/audio/transcriptions -F file=@test.wav \
+curl http://gb-server:8000/v1/audio/transcriptions -F file=@test.wav \
   -F model=Systran/faster-whisper-medium -F language=en
 
 ~/.local/bin/dictate.sh en                         # run twice to see client errors in a terminal

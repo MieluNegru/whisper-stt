@@ -9,7 +9,7 @@ Self-hosted speech-to-text on CPU with faster-whisper (int8), with:
 English and Romanian are both supported.
 
 ```
-┌──────────────────── gb-server01 (Docker) ─────────────────────┐
+┌───────────────────── gb-server (Docker) ──────────────────────┐
 │  speaches        :8000   OpenAI REST API    medium  (en + ro) │◄── dictate.sh, curl, Open WebUI, n8n…
 │  faster-whisper  :10300  Wyoming protocol   small-int8  (en)  │◄── Home Assistant
 └───────────────────────────────────────────────────────────────┘
@@ -64,7 +64,7 @@ The `faster-whisper` container downloads its model into `server/faster-whisper/`
 # Record 5 seconds and transcribe it
 pw-record --rate 16000 --channels 1 --format s16 test.wav & sleep 5; kill %1
 
-curl http://gb-server01:8000/v1/audio/transcriptions \
+curl http://gb-server:8000/v1/audio/transcriptions \
   -F file=@test.wav \
   -F model=Systran/faster-whisper-medium \
   -F language=en
@@ -72,7 +72,7 @@ curl http://gb-server01:8000/v1/audio/transcriptions \
 
 - Set `language=ro` for Romanian, or leave it out to auto-detect. Auto-detection is unreliable on short clips.
 - Add `-F stream=true` to receive segments over SSE as they're transcribed.
-- Interactive API docs are at `http://gb-server01:8000/docs`.
+- Interactive API docs are at `http://gb-server:8000/docs`.
 
 speaches loads a model on its first request and unloads it after a period of inactivity. Expect the first request after an idle period to be slow.
 
@@ -90,7 +90,7 @@ speaches loads a model on its first request and unloads it after a period of ina
 ## 2. Home Assistant
 
 1. Go to **Settings → Devices & services → Add integration → Wyoming Protocol**.
-2. Set the host to `gb-server01` and the port to `10300`.
+2. Set the host to `gb-server` and the port to `10300`.
 3. Go to **Settings → Voice assistants**, open your assistant (or create one), and set **Speech-to-text** to `faster-whisper`.
 
 HA's Wyoming integration uses one language per server. To use Romanian voice commands in HA, either set `WHISPER_LANG=ro` or run a second `faster-whisper` container on another port with `WHISPER_LANG=ro`. Raise that container to `WHISPER_MODEL=medium-int8` if you do: the default `small-int8` is noticeably weaker in Romanian, which is why this server defaults to English only.
@@ -109,7 +109,7 @@ pipewire-utils (pw-record)  curl  jq  wl-clipboard  libnotify (notify-send, opti
 
 On Bazzite and other Fedora Atomic systems, add them to your image's Containerfile (`dnf install -y …`) or layer them with `rpm-ostree install`.
 
-The server URL defaults to `http://gb-server01:8000`. To change it, set `WHISPER_URL`, or `WHISPER_MODEL` for the model.
+The server URL defaults to `http://gb-server:8000`. To change it, set `WHISPER_URL`, or `WHISPER_MODEL` for the model.
 
 ### Hyprland
 
@@ -161,9 +161,12 @@ How text is entered on KDE: `ydotool` sends raw US-layout keycodes, so it can't 
 | Symptom | Check |
 |---|---|
 | Nothing happens on the shortcut | Run `~/.local/bin/dictate.sh en` from a terminal twice to see errors |
+| Works from a terminal but not from the shortcut | Add `-v` to the shortcut's command (`… dictate.sh -v en`) and read `~/.local/state/dictate.log`. It records the `WHISPER_URL` the script actually received, what launched it, and curl's result |
 | `ydotool: failed to connect socket` | `systemctl --user status ydotoold`, and `echo $YDOTOOL_SOCKET` (log out and back in after installing) |
 | `ydotoold` can't open `/dev/uinput` | `ls -l /dev/uinput` should show group `input`; `id` should list `input` |
-| "Nothing recognised" | Is the server reachable? `curl http://gb-server01:8000/health`. Is the right microphone the default? Check with `wpctl status` |
+| "Transcription failed" | The notification shows curl's error. `Could not resolve host` means the client can't resolve `gb-server`: add it to `/etc/hosts` or set `WHISPER_URL` to the IP. Otherwise check `curl http://gb-server:8000/health` |
+| KDE shortcut uses an old `WHISPER_URL` after re-running the installer | KWin keeps each launcher's `Exec=` from login time. Log out and back in |
+| "Nothing recognised" | The server answered but heard no speech. Is the right microphone the default? Check with `wpctl status` |
 | Recording seems stuck | `rm -rf $XDG_RUNTIME_DIR/dictate` |
 | Slow transcription | First request after idle loads the model. Otherwise try `WHISPER_MODEL=Systran/faster-whisper-small` |
 
@@ -174,7 +177,7 @@ How text is entered on KDE: `ydotool` sends raw US-layout keycodes, so it can't 
 speaches implements the OpenAI audio API, so most tools only need their base URL changed:
 
 ```
-OPENAI_BASE_URL=http://gb-server01:8000/v1
+OPENAI_BASE_URL=http://gb-server:8000/v1
 OPENAI_API_KEY=anything   # required by the SDKs but not checked
 ```
 

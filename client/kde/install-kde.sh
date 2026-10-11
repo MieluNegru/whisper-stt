@@ -34,6 +34,9 @@ mkdir -p ~/.local/share/applications
 for lang in en ro; do
   sed "s|@HOME@|$HOME|" "kde/dictate-$lang.desktop" > ~/.local/share/applications/dictate-$lang.desktop
 done
+# kglobalaccel (inside KWin) reads each launcher's Exec= once per session and keeps
+# it in memory, so on a re-install the shortcuts run the *old* command (e.g. a
+# stale WHISPER_URL) until the next login, even though the file on disk is new.
 
 kwriteconfig6 --file kglobalshortcutsrc --group services --group dictate-en.desktop \
   --key _launch "Meta+Alt+D"
